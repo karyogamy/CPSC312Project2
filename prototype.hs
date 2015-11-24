@@ -19,10 +19,11 @@ prettyFormat b n
      
 flatten (h:t) = h ++ (flatten t)
 flatten [] = []
-     
+  
+-- callbacks for runAction  
 clear c = '-'
-
 setSlide turn c = (if c == '-' then turn else c)
+setJump turn c = if not (c == turn) then turn else c
 
 -- perform fn on b @ x,y
 runAction b x y fn = runLine y (runLine x fn) b
@@ -34,12 +35,14 @@ runLine x fn s = runLine' x fn s [] where
         | otherwise =
             runLine' (x-1) fn (tail s) (h ++ [(head s)])
 
+at board x y = head (drop x (head (drop y board)))
+            
 rowLength b y = length (head (drop y b))
             
 shift :: [String] -> Int -> Int -> Int -> Int
-shift b x y off =
-    let currentRl = (rowLength b y)
-        otherRl = (rowLength b (y + off))
+shift board x y y2 =
+    let currentRl = (rowLength board y)
+        otherRl = (rowLength board y2)
     in
         if currentRl < otherRl
         then
@@ -51,9 +54,10 @@ shift b x y off =
             else
                 (x-1)
 
-validCoord b x y =
-    (x >= 0) && (y >= 0) && (y < (length b)) && (x < (rowLength b y))
-        
+validCoord board x y =
+    (x >= 0) && (y >= 0) && (y < (length board)) && (x < (rowLength board y))
+
+-- generate a single possiblity (or not) by applying fn to the new x and y
 onePossible base x y fn =
     let new = runAction base x y fn
     in 
@@ -61,21 +65,68 @@ onePossible base x y fn =
             [new]
         else
             []
+
+data Point = Point Int Int deriving (Show) 
+data Hop = Hop Point Point deriving (Show)       
             
---jump b xhop yhop xdest ydest turn =
+-- generating coordinates for jumps
+getJumpUpRight board x y = 
+    let yhop = (y-1)
+        xhop = shift board x y yhop
+    in
+      (Hop (Point xhop yhop) (Point (shift board xhop y (yhop-1)) (yhop-1)))  
+
+getJumpUpLeft board x y =
+    let yhop = (y-1)
+    in
+        (Hop (Point x yhop) (Point (x - (shift board x y (yhop-1))) (yhop-1)))  
+
+getJumpDownRight board x y =
+    let yhop = (y+1)
+        xhop = shift board x y yhop
+    in
+      (Hop (Point xhop yhop) (Point (shift board xhop y (yhop+1)) (yhop+1)))
+      
+getJumpDownLeft board x y = 
+    let yhop = (y+1)
+    in
+        (Hop (Point x yhop) (Point (x - (shift board x y (yhop+1))) (yhop+1)))  
     
-          
-generatePossible b x y turn = 
-    let base = runAction b x y clear
+getJumpLeft board x y =
+    (Hop (Point (x-1) y) (Point (x-2) y))
+    
+getJumpRight board x y =
+    (Hop (Point (x+1) y) (Point (x+2) y))
+    
+possibleJump board (Hop (Point xhop yhop) (Point xdest ydest)) fn =
+    if not ((at board xhop yhop) == '-')
+    then
+        onePossible board xdest ydest fn
+    else
+        []
+   
+generateJumps board x y fn =
+    (possibleJump board (getJumpUpRight board x y) fn) ++
+    (possibleJump board (getJumpUpLeft board x y) fn) ++
+    (possibleJump board (getJumpDownRight board x y) fn) ++
+    (possibleJump board (getJumpDownLeft board x y) fn) ++
+    (possibleJump board (getJumpRight board x y) fn) ++
+    (possibleJump board (getJumpLeft board x y) fn)
+    
+-- generate all possible moves for x,y with the acturn turn
+generatePossible board x y turn = 
+    let base = runAction board x y clear
     in
         (onePossible base (x-1) y (setSlide turn)) ++
         (onePossible base (x+1) y (setSlide turn)) ++
         (onePossible base x (y-1) (setSlide turn)) ++
         (onePossible base x (y+1) (setSlide turn)) ++
-        (onePossible base (shift b x y (-1)) (y-1) (setSlide turn)) ++
-        (onePossible base (shift b x y    1) (y+1) (setSlide turn))
+        (onePossible base (shift board x y (y-1)) (y-1) (setSlide turn)) ++
+        (onePossible base (shift board x y (y+1)) (y+1) (setSlide turn)) ++
+        (generateJumps base x y (setJump turn))
 
 test' [] = ""
 test' (h:t) = (prettyFormat h 3) ++ "\n\n" ++ (test' t)
         
 test = putStrLn (test' (generatePossible (parse "WWW-WW-------BB-BBB" 3) 1 1 'W'))
+test2 = putStrLn (test' (generatePossible (parse "WWW--W--W----BB-BBB" 3) 1 3 'B'))
