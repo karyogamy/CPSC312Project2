@@ -37,8 +37,13 @@ runLine x fn s = runLine' x fn s [] where
 
 at board x y = head (drop x (head (drop y board)))
             
-rowLength b y = length (head (drop y b))
-            
+rowLength b y =
+    if length b <= y
+    then
+        -1
+    else
+        length (head (drop y b))
+
 shift :: [String] -> Int -> Int -> Int -> Int
 shift board x y y2 =
     let currentRl = (rowLength board y)
@@ -99,7 +104,8 @@ getJumpRight board x y =
     (Hop (Point (x+1) y) (Point (x+2) y))
     
 possibleJump board (Hop (Point xhop yhop) (Point xdest ydest)) fn =
-    if not ((at board xhop yhop) == '-')
+    --if (validCoord board xhop yhop) && (not ((at board xhop yhop) == '-'))
+    if (validCoord board xhop yhop)
     then
         onePossible board xdest ydest fn
     else
