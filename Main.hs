@@ -5,4 +5,5 @@ import CrusherEvaluator as CE
 
 -- print (parse "WWW--W--W----BB-BBB" 3)
 
-main = putStrLn(test' (possibleCrushes (parse "WWW--W--W----BB-BBB" 3) 'W' 'B'))
+--main = print(pawnLocations (parse "WWW--W--W----BB-BBB" 3) 'W')
+main = print(findBest (parse "WWW--W--W----BB-BBB" 3) 'W' 'B' 3)
