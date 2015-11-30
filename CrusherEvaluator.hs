@@ -52,7 +52,7 @@ possibleCrushes :: Board -> Piece -> Piece -> [Board]
 possibleCrushes board playerLabel rivalLabel =
     let
         rivalPawnCount = countPawns board rivalLabel
-        playerPossibleMoves = fnPossible board playerLabel generatePossible
+        playerPossibleMoves = fnPossible board playerLabel generateJumps
     in
         filter (\board -> countPawns board rivalLabel < rivalPawnCount) playerPossibleMoves
 
@@ -60,13 +60,15 @@ countPossibleCrushes :: Board -> Piece -> Piece -> Int
 countPossibleCrushes board playerLabel rivalLabel =
     length $ possibleCrushes board playerLabel rivalLabel
 
-generateAlternatingMoves :: Board -> Piece -> Piece -> Int -> [Board]
-generateAlternatingMoves board playerLabel rivalLabel level
+generateAlternatingMoves :: Board -> Piece -> Piece -> Int -> [Board] -> [Board]
+generateAlternatingMoves board playerLabel rivalLabel level historyBoards
     | level <= 0 = [board]
-    | level == 1 = allPossibleOnLevel
-    | otherwise = flatten $ map (\b -> generateAlternatingMoves b rivalLabel playerLabel (level-1)) allPossibleOnLevel
+    | level == 1 = distinctPossibleBoards
+    | otherwise = flatten $ map (\b ->
+                    generateAlternatingMoves b rivalLabel playerLabel (level-1) historyBoards) filteredPossibleBoards
     where
-        allPossibleOnLevel = fnPossible board playerLabel generatePossible
+        distinctPossibleBoards = nub $ fnPossible board playerLabel generatePossible
+        filteredPossibleBoards = filter (`notElem` historyBoards) distinctPossibleBoards
 
 state :: Board -> Piece -> Piece -> State
 state board playerLabel rivalLabel
@@ -97,21 +99,29 @@ evaluate board playerLabel rivalLabel =
         nextJumpCountDifference +
         nextCrushCountDifference * 2
 
-findBest board playerLabel rivalLabel level
+findBest :: Board -> Piece -> Piece -> Int -> [Board] -> Board
+findBest board playerLabel rivalLabel level historyBoards
     | level <= 0    = board
     | otherwise     = snd maximumScoreMove
     where
-        firstPossibleMoves = generateAlternatingMoves board playerLabel rivalLabel 1
+        firstPossibleMoves = generateAlternatingMoves board playerLabel rivalLabel 1 historyBoards
 
         allPossibleMoves =
             map (\firstMove ->
-                    (generateAlternatingMoves firstMove rivalLabel playerLabel (level - 1), firstMove)) firstPossibleMoves
+                    (generateAlternatingMoves firstMove rivalLabel playerLabel (level - 1) historyBoards, firstMove)) firstPossibleMoves
 
         allEvaluatedMoves =
-            [ (map (\move -> evaluate move playerLabel rivalLabel) moves, firstMove) | (moves, firstMove) <- allPossibleMoves ]
-
-        maximizedMoves =
-            map (\(scores, firstMove) -> (maximum scores, firstMove)) allEvaluatedMoves
+            [ (maximum $ map (\move -> evaluate move playerLabel rivalLabel) moves, firstMove) | (moves, firstMove) <- allPossibleMoves ]
 
         maximumScoreMove =
-            foldl1 (\(s, f) (acc, m) -> if acc > s then (acc, m) else (s, f)) maximizedMoves
+            foldl1 (\(s, f) (acc, m) -> if acc > s then (acc, m) else (s, f)) allEvaluatedMoves
+
+-- snatched code of nub (distinct) from GHC source
+nub :: (Eq a) => [a] -> [a]
+nub list =
+    nub' list []
+    where
+        nub' [] _ = []
+        nub' (x:xs) ls
+            | x `elem` ls = nub' xs ls
+            | otherwise = x : nub' xs (x:ls)
