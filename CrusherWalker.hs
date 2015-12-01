@@ -81,23 +81,23 @@ getJumpUpRight board x y =
     let yhop = y-1
         xhop = shift board x y yhop
     in
-      (Hop (Point xhop yhop) (Point (shift board xhop y yhop-1) (yhop-1)))
+      (Hop (Point xhop yhop) (Point (shift board xhop y (yhop-1)) (yhop-1)))
 
 getJumpUpLeft board x y =
     let yhop = y-1
     in
-        (Hop (Point x yhop) (Point (x - (shift board x y yhop-1)) (yhop-1)))
+        (Hop (Point x yhop) (Point (x - (shift board x y (yhop-1))) (yhop-1)))
 
 getJumpDownRight board x y =
     let yhop = y+1
         xhop = shift board x y yhop
     in
-      (Hop (Point xhop yhop) (Point (shift board xhop y yhop+1) (yhop+1)))
+      (Hop (Point xhop yhop) (Point (shift board xhop y (yhop+1)) (yhop+1)))
 
 getJumpDownLeft board x y =
     let yhop = y+1
     in
-        (Hop (Point x yhop) (Point (x - (shift board x y yhop+1)) (yhop+1)))
+        (Hop (Point x yhop) (Point (x - (shift board x y (yhop+1))) (yhop+1)))
 
 getJumpLeft board x y =
     (Hop (Point (x-1) y) (Point (x-2) y))
@@ -105,9 +105,9 @@ getJumpLeft board x y =
 getJumpRight board x y =
     (Hop (Point (x+1) y) (Point (x+2) y))
 
-possibleJump board (Hop (Point xhop yhop) (Point xdest ydest)) fn =
+possibleJump board (Hop (Point xhop yhop) (Point xdest ydest)) turn fn =
     --if (validCoord board xhop yhop) && (not ((at board xhop yhop) == '-'))
-    if validCoord board xhop yhop
+    if validCoord board xhop yhop && at board xhop yhop == turn
     then
         onePossible board xdest ydest fn
     else
@@ -119,12 +119,12 @@ generateJumps board x y turn =
         base    = runAction board x y clear
         fn      = setJump turn
     in
-        possibleJump base (getJumpUpRight base x y)     fn ++
-        possibleJump base (getJumpUpLeft base x y)      fn ++
-        possibleJump base (getJumpDownRight base x y)   fn ++
-        possibleJump base (getJumpDownLeft base x y)    fn ++
-        possibleJump base (getJumpRight base x y)       fn ++
-        possibleJump base (getJumpLeft base x y)        fn
+        possibleJump base (getJumpUpRight base x y)     turn fn ++
+        possibleJump base (getJumpUpLeft base x y)      turn fn ++
+        possibleJump base (getJumpDownRight base x y)   turn fn ++
+        possibleJump base (getJumpDownLeft base x y)    turn fn ++
+        possibleJump base (getJumpRight base x y)       turn fn ++
+        possibleJump base (getJumpLeft base x y)        turn fn
 
 -- generate all possible shifts for x,y with the acturn turn
 generateMoves board x y turn =
