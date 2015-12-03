@@ -63,7 +63,7 @@ countPossibleCrushes board playerLabel rivalLabel =
 generateAlternatingMoves :: Board -> Piece -> Piece -> Int -> [Board] -> [Board]
 generateAlternatingMoves board playerLabel rivalLabel level historyBoards
     | level <= 0 = [board]
-    | level == 1 = distinctPossibleBoards
+    | level == 1 = filteredPossibleBoards
     | otherwise = flatten $ map (\b ->
                     generateAlternatingMoves b rivalLabel playerLabel (level-1) historyBoards) filteredPossibleBoards
     where
@@ -86,39 +86,41 @@ state board playerLabel rivalLabel
 evaluate :: Board -> Piece -> Piece -> Int
 evaluate board playerLabel rivalLabel =
     let
-        playerState = state board playerLabel rivalLabel
-        terminationScore
-            | playerState == WINS   = 1000
-            | playerState == LOSES  = -1000
-            | otherwise             = 0
-        pawnScore = countPawns board playerLabel - countPawns board rivalLabel
-        nextMoveScore = countPossibleMoves board playerLabel - countPossibleMoves board rivalLabel
-        nextJumpScore = countPossibleJumps board playerLabel - countPossibleJumps board rivalLabel
-        nextCrushScore = countPossibleCrushes board playerLabel rivalLabel -
-                                    countPossibleCrushes board rivalLabel playerLabel
+        pawnScore = countPawns board playerLabel
+        nextMoveScore = countPossibleMoves board playerLabel
+        nextJumpScore = countPossibleJumps board playerLabel
+        nextCrushScore = countPossibleCrushes board playerLabel rivalLabel
     in
-        terminationScore +
-        pawnScore +
-        nextMoveScore +
-        nextJumpScore +
-        nextCrushScore * 12
+        pawnScore + nextMoveScore + nextJumpScore + nextCrushScore * 12
+
+generateScore :: Board -> Piece -> Piece -> Int -> Bool -> [Board] -> Int
+generateScore board playerLabel rivalLabel level isMinLevel historyBoards
+    | playerState == WINS   = 1000
+    | playerState == LOSES  = -1000
+    | level <= 0            = evaluate board playerLabel rivalLabel
+    | otherwise             = score
+    where 
+        playerState = state board playerLabel rivalLabel
+        newHistory = historyBoards ++ [board]
+        possibleBoards = generateAlternatingMoves board playerLabel rivalLabel 1 newHistory
+        cumulativeFn
+            | isMinLevel    = maximum
+            | otherwise     = minimum
+        score = cumulativeFn (map (\onePossibleBoard -> (generateScore onePossibleBoard rivalLabel playerLabel (level-1) (not(isMinLevel)) newHistory)) possibleBoards)
 
 findBest :: Board -> Piece -> Piece -> Int -> [Board] -> Board
 findBest board playerLabel rivalLabel level historyBoards
     | level <= 0    = board
-    | otherwise     = snd maximumScoreMove
+    | otherwise     = snd minScoreMove
     where
         firstPossibleMoves = generateAlternatingMoves board playerLabel rivalLabel 1 historyBoards
 
-        allPossibleMoves =
-            map (\firstMove ->
-                    (generateAlternatingMoves firstMove rivalLabel playerLabel (level - 1) historyBoards, firstMove)) firstPossibleMoves
-
         allEvaluatedMoves =
-            [ (maximum $ map (\move -> evaluate move playerLabel rivalLabel) moves, firstMove) | (moves, firstMove) <- allPossibleMoves ]
+            map (\firstMove ->
+                    ((generateScore firstMove rivalLabel playerLabel (level - 1) True historyBoards), firstMove)) firstPossibleMoves
 
-        maximumScoreMove =
-            foldl1 (\(s, f) (acc, m) -> if acc > s then (acc, m) else (s, f)) allEvaluatedMoves
+        minScoreMove =
+            foldl1 (\(s, f) (acc, m) -> if acc < s then (acc, m) else (s, f)) allEvaluatedMoves
 
 -- snatched code of nub (distinct) from GHC source
 nub :: (Eq a) => [a] -> [a]
