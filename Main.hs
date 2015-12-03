@@ -17,5 +17,5 @@ crusher boardStrings playerLabel rivalLabel searchDepth boardDimension =
 
 --main = print(pawnLocations (parse "WWW--W--W----BB-BBB" 3) 'W')
 --main = putStrLn (test'(generatePossible (parse "WWW--W--W----BB-BBB" 3) 2 2 'W'))
---main = putStrLn(test'[(findBest (parse "WWW--W--W----BB-BBB" 3) 'W' 'B' 3)])
+--main = putStrLn(test'[(findBest (parse "WWW--W--W----BB-BBB" 3) 'W' 'B' 3 [])])
 main = print(crusher ["WWW--W-------BB-BWB","WWW--W--W----BB-BBB"] 'B' 'W' 2 3)

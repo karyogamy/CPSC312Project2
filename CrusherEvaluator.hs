@@ -72,32 +72,36 @@ generateAlternatingMoves board playerLabel rivalLabel level historyBoards
 
 state :: Board -> Piece -> Piece -> State
 state board playerLabel rivalLabel
-    | playerPawnCount == 0  = LOSES
-    | rivalPawnCount == 0   = WINS
+    | playerPawnCount == 1  = LOSES
+    | playerPossible == 0   = LOSES
+    | rivalPawnCount == 1   = WINS
+    | rivalPossible == 0    = WINS
     | otherwise             = ONGOING
     where
         playerPawnCount = countPawns board playerLabel
+        playerPossible = countPossibleMoves board playerLabel + countPossibleJumps board playerLabel
         rivalPawnCount  = countPawns board rivalLabel
+        rivalPossible = countPossibleMoves board rivalLabel + countPossibleJumps board rivalLabel
 
 evaluate :: Board -> Piece -> Piece -> Int
 evaluate board playerLabel rivalLabel =
     let
         playerState = state board playerLabel rivalLabel
         terminationScore
-            | playerState == WINS   = 100
-            | playerState == LOSES  = -100
+            | playerState == WINS   = 1000
+            | playerState == LOSES  = -1000
             | otherwise             = 0
-        pawnCountDifference = countPawns board playerLabel - countPawns board rivalLabel
-        nextMoveCountDifference = countPossibleMoves board playerLabel - countPossibleMoves board rivalLabel
-        nextJumpCountDifference = countPossibleJumps board playerLabel - countPossibleJumps board rivalLabel
-        nextCrushCountDifference = countPossibleCrushes board playerLabel rivalLabel -
+        pawnScore = countPawns board playerLabel - countPawns board rivalLabel
+        nextMoveScore = countPossibleMoves board playerLabel - countPossibleMoves board rivalLabel
+        nextJumpScore = countPossibleJumps board playerLabel - countPossibleJumps board rivalLabel
+        nextCrushScore = countPossibleCrushes board playerLabel rivalLabel -
                                     countPossibleCrushes board rivalLabel playerLabel
     in
         terminationScore +
-        pawnCountDifference +
-        nextMoveCountDifference +
-        nextJumpCountDifference +
-        nextCrushCountDifference * 2
+        pawnScore +
+        nextMoveScore +
+        nextJumpScore +
+        nextCrushScore * 12
 
 findBest :: Board -> Piece -> Piece -> Int -> [Board] -> Board
 findBest board playerLabel rivalLabel level historyBoards

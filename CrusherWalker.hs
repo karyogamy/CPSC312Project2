@@ -46,20 +46,28 @@ rowLength b y =
     else
         length (head (drop y b))
 
-shift :: [String] -> Int -> Int -> Int -> Int
-shift board x y y2 =
+-- shift calculate the x coordinate in a hex coordinate system
+-- when performing upleft, upright, downleft, downright
+-- y2 indicates up/down, y2 = y+1 (up) or y-1 (down)
+-- left indicates left/right, left = 1 (left)
+shift :: [String] -> Int -> Int -> Int -> Int -> Int
+shift board x y y2 left =
     let currentRl = (rowLength board y)
         otherRl = (rowLength board y2)
     in
         if currentRl < otherRl
         then
-            (x+1)
-        else
-            if currentRl == otherRl
-            then
+            if left == 1
+            then 
                 x
             else
+                (x+1)
+        else
+            if left == 1
+            then
                 (x-1)
+            else
+                x
 
 validCoord board x y =
     (x >= 0) && (y >= 0) && (y < (length board)) && (x < (rowLength board y))
@@ -79,25 +87,27 @@ data Hop = Hop Point Point deriving (Show)
 -- generating coordinates for jumps
 getJumpUpRight board x y =
     let yhop = y-1
-        xhop = shift board x y yhop
+        xhop = shift board x y yhop 0
     in
-      (Hop (Point xhop yhop) (Point (shift board xhop y (yhop-1)) (yhop-1)))
+      (Hop (Point xhop yhop) (Point (shift board xhop yhop (yhop-1) 0) (yhop-1)))
 
 getJumpUpLeft board x y =
     let yhop = y-1
+        xhop = shift board x y yhop 1
     in
-        (Hop (Point x yhop) (Point (x - (shift board x y (yhop-1))) (yhop-1)))
+        (Hop (Point xhop yhop) (Point (shift board xhop yhop (yhop-1) 1) (yhop-1)))
 
 getJumpDownRight board x y =
     let yhop = y+1
-        xhop = shift board x y yhop
+        xhop = shift board x y yhop 0
     in
-      (Hop (Point xhop yhop) (Point (shift board xhop y (yhop+1)) (yhop+1)))
+      (Hop (Point xhop yhop) (Point (shift board xhop yhop (yhop+1) 0) (yhop+1)))
 
 getJumpDownLeft board x y =
     let yhop = y+1
+        xhop = shift board x y yhop 1
     in
-        (Hop (Point x yhop) (Point (x - (shift board x y (yhop+1))) (yhop+1)))
+        (Hop (Point xhop yhop) (Point (shift board xhop yhop (yhop+1) 1) (yhop+1)))
 
 getJumpLeft board x y =
     (Hop (Point (x-1) y) (Point (x-2) y))
@@ -134,10 +144,10 @@ generateMoves board x y turn =
     in
         onePossible base (x-1) y fn ++
         onePossible base (x+1) y fn ++
-        onePossible base x (y-1) fn ++
-        onePossible base x (y+1) fn ++
-        onePossible base (shift board x y (y-1)) (y-1) fn ++
-        onePossible base (shift board x y (y+1)) (y+1) fn
+        onePossible base (shift board x y (y-1) 0) (y-1) fn ++
+        onePossible base (shift board x y (y-1) 1) (y-1) fn ++
+        onePossible base (shift board x y (y+1) 0) (y+1) fn ++
+        onePossible base (shift board x y (y+1) 1) (y+1) fn
 
 -- generate all possible moves for x,y with the acturn turn
 generatePossible board x y turn =
