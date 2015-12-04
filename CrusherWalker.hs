@@ -25,7 +25,7 @@ flatten [] = []
 -- callbacks for runAction
 clear c = '-'
 setSlide turn c = (if c == '-' then turn else c)
-setJump turn c = if not (c == turn) then turn else c
+setLeap turn c = if not (c == turn) then turn else c
 
 -- perform fn on b @ x,y
 runAction b x y fn = runLine y (runLine x fn) b
@@ -47,7 +47,7 @@ rowLength b y =
         length (head (drop y b))
 
 -- shift calculate the x coordinate in a hex coordinate system
--- when performing upleft, upright, downleft, downright
+-- when moving upleft, upright, downleft, downright
 -- y2 indicates up/down, y2 = y+1 (up) or y-1 (down)
 -- left indicates left/right, left = 1 (left)
 shift :: [String] -> Int -> Int -> Int -> Int -> Int
@@ -72,8 +72,10 @@ shift board x y y2 left =
 validCoord board x y =
     (x >= 0) && (y >= 0) && (y < (length board)) && (x < (rowLength board y))
 
--- generate a single possiblity (or not) by applying fn to the new x and y
-onePossible base x y fn =
+-- try move pawn to new x and y by applying fn (setSlide or setLeap)
+-- if succeed return new board
+-- if fail return empty
+tryMove base x y fn =
     let new = runAction base x y fn
     in
         if (validCoord base x y) && not ((flatten new) == (flatten base)) then
@@ -84,79 +86,79 @@ onePossible base x y fn =
 data Point = Point Int Int deriving (Show)
 data Hop = Hop Point Point deriving (Show)
 
--- generating coordinates for jumps
-getJumpUpRight board x y =
+-- generating coordinates for Leaps
+getLeapUpRight board x y =
     let yhop = y-1
         xhop = shift board x y yhop 0
     in
       (Hop (Point xhop yhop) (Point (shift board xhop yhop (yhop-1) 0) (yhop-1)))
 
-getJumpUpLeft board x y =
+getLeapUpLeft board x y =
     let yhop = y-1
         xhop = shift board x y yhop 1
     in
         (Hop (Point xhop yhop) (Point (shift board xhop yhop (yhop-1) 1) (yhop-1)))
 
-getJumpDownRight board x y =
+getLeapDownRight board x y =
     let yhop = y+1
         xhop = shift board x y yhop 0
     in
       (Hop (Point xhop yhop) (Point (shift board xhop yhop (yhop+1) 0) (yhop+1)))
 
-getJumpDownLeft board x y =
+getLeapDownLeft board x y =
     let yhop = y+1
         xhop = shift board x y yhop 1
     in
         (Hop (Point xhop yhop) (Point (shift board xhop yhop (yhop+1) 1) (yhop+1)))
 
-getJumpLeft board x y =
+getLeapLeft board x y =
     (Hop (Point (x-1) y) (Point (x-2) y))
 
-getJumpRight board x y =
+getLeapRight board x y =
     (Hop (Point (x+1) y) (Point (x+2) y))
 
-possibleJump board (Hop (Point xhop yhop) (Point xdest ydest)) turn fn =
+possibleLeap board (Hop (Point xhop yhop) (Point xdest ydest)) turn fn =
     --if (validCoord board xhop yhop) && (not ((at board xhop yhop) == '-'))
     if validCoord board xhop yhop && at board xhop yhop == turn
     then
-        onePossible board xdest ydest fn
+        tryMove board xdest ydest fn
     else
         []
 
--- generate all possible jumps for x,y with the turn function
-generateJumps board x y turn =
+-- generate all possible leaps for x,y with the turn function
+generateLeaps board x y turn =
     let
         base    = runAction board x y clear
-        fn      = setJump turn
+        fn      = setLeap turn
     in
-        possibleJump base (getJumpUpRight base x y)     turn fn ++
-        possibleJump base (getJumpUpLeft base x y)      turn fn ++
-        possibleJump base (getJumpDownRight base x y)   turn fn ++
-        possibleJump base (getJumpDownLeft base x y)    turn fn ++
-        possibleJump base (getJumpRight base x y)       turn fn ++
-        possibleJump base (getJumpLeft base x y)        turn fn
+        possibleLeap base (getLeapUpRight base x y)     turn fn ++
+        possibleLeap base (getLeapUpLeft base x y)      turn fn ++
+        possibleLeap base (getLeapDownRight base x y)   turn fn ++
+        possibleLeap base (getLeapDownLeft base x y)    turn fn ++
+        possibleLeap base (getLeapRight base x y)       turn fn ++
+        possibleLeap base (getLeapLeft base x y)        turn fn
 
--- generate all possible shifts for x,y with the acturn turn
-generateMoves board x y turn =
+-- generate all possible slides for x,y with the acturn turn
+generateSlides board x y turn =
     let
         base    = runAction board x y clear
         fn      = setSlide turn
     in
-        onePossible base (x-1) y fn ++
-        onePossible base (x+1) y fn ++
-        onePossible base (shift board x y (y-1) 0) (y-1) fn ++
-        onePossible base (shift board x y (y-1) 1) (y-1) fn ++
-        onePossible base (shift board x y (y+1) 0) (y+1) fn ++
-        onePossible base (shift board x y (y+1) 1) (y+1) fn
+        tryMove base (x-1) y fn ++
+        tryMove base (x+1) y fn ++
+        tryMove base (shift board x y (y-1) 0) (y-1) fn ++
+        tryMove base (shift board x y (y-1) 1) (y-1) fn ++
+        tryMove base (shift board x y (y+1) 0) (y+1) fn ++
+        tryMove base (shift board x y (y+1) 1) (y+1) fn
 
--- generate all possible moves for x,y with the acturn turn
-generatePossible board x y turn =
-    generateMoves board x y turn ++
-    generateJumps board x y turn
+-- generate all possible slides for x,y with the acturn turn
+generatePossibleMoves board x y turn =
+    generateSlides board x y turn ++
+    generateLeaps board x y turn
 
 
 test' [] = ""
 test' (h:t) = (prettyFormat h 3) ++ "\n\n" ++ (test' t)
 
-test = putStrLn (test' (generatePossible (parse "WWW-WW-------BB-BBB" 3) 1 1 'W'))
-test2 = putStrLn (test' (generatePossible (parse "WWW--W--W----BB-BBB" 3) 1 3 'B'))
+test = putStrLn (test' (generatePossibleMoves (parse "WWW-WW-------BB-BBB" 3) 1 1 'W'))
+test2 = putStrLn (test' (generatePossibleMoves (parse "WWW--W--W----BB-BBB" 3) 1 3 'B'))

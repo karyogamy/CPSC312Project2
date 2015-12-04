@@ -42,17 +42,11 @@ fnPossible board playerLabel fn =
     in
         flatten $ map (\(Pawn playerPawns (Point x y)) -> (fn board x y playerPawns)) playerPawns
 
-countPossibleMoves :: Board -> Piece -> Int
-countPossibleMoves board playerLabel = length $ fnPossible board playerLabel generateMoves
-
-countPossibleJumps :: Board -> Piece -> Int
-countPossibleJumps board playerLabel = length $ fnPossible board playerLabel generateJumps
-
 possibleCrushes :: Board -> Piece -> Piece -> [Board]
 possibleCrushes board playerLabel rivalLabel =
     let
         rivalPawnCount = countPawns board rivalLabel
-        playerPossibleMoves = fnPossible board playerLabel generateJumps
+        playerPossibleMoves = fnPossible board playerLabel generateLeaps
     in
         filter (\board -> countPawns board rivalLabel < rivalPawnCount) playerPossibleMoves
 
@@ -60,15 +54,18 @@ countPossibleCrushes :: Board -> Piece -> Piece -> Int
 countPossibleCrushes board playerLabel rivalLabel =
     length $ possibleCrushes board playerLabel rivalLabel
 
-generateAlternatingMoves :: Board -> Piece -> Piece -> [Board] -> [Board]
-generateAlternatingMoves board playerLabel rivalLabel historyBoards =
+countPossibleMoves :: Board -> Piece -> [Board] -> Int
+countPossibleMoves board playerLabel historyBoards = length $ generateMoves board playerLabel historyBoards
+
+generateMoves :: Board -> Piece -> [Board] -> [Board]
+generateMoves board playerLabel historyBoards =
     let 
-        distinctPossibleBoards = nub $ fnPossible board playerLabel generatePossible
+        distinctPossibleBoards = nub $ fnPossible board playerLabel generatePossibleMoves
     in
         filter (`notElem` historyBoards) distinctPossibleBoards
 
-state :: Board -> Piece -> Piece -> State
-state board playerLabel rivalLabel
+state :: Board -> Piece -> Piece -> [Board] -> State
+state board playerLabel rivalLabel historyBoards
     | playerPawnCount == 1  = LOSES
     | playerPossible == 0   = LOSES
     | rivalPawnCount == 1   = WINS
@@ -76,30 +73,29 @@ state board playerLabel rivalLabel
     | otherwise             = ONGOING
     where
         playerPawnCount = countPawns board playerLabel
-        playerPossible = countPossibleMoves board playerLabel + countPossibleJumps board playerLabel
+        playerPossible = countPossibleMoves board playerLabel historyBoards
         rivalPawnCount  = countPawns board rivalLabel
-        rivalPossible = countPossibleMoves board rivalLabel + countPossibleJumps board rivalLabel
+        rivalPossible = countPossibleMoves board rivalLabel historyBoards
 
-evaluate :: Board -> Piece -> Piece -> Int
-evaluate board playerLabel rivalLabel =
+evaluate :: Board -> Piece -> Piece -> [Board] -> Int
+evaluate board playerLabel rivalLabel historyBoards =
     let
         pawnScore = countPawns board playerLabel
-        nextMoveScore = countPossibleMoves board playerLabel
-        nextJumpScore = countPossibleJumps board playerLabel
+        nextMoveScore = countPossibleMoves board playerLabel historyBoards
         nextCrushScore = countPossibleCrushes board playerLabel rivalLabel
     in
-        pawnScore + nextMoveScore + nextJumpScore + nextCrushScore * 12
+        pawnScore + nextMoveScore + nextCrushScore * 12
 
 generateScore :: Board -> Piece -> Piece -> Int -> Bool -> [Board] -> Int
 generateScore board playerLabel rivalLabel level isMinLevel historyBoards
     | playerState == WINS   = 1000
     | playerState == LOSES  = -1000
-    | level <= 0            = evaluate board playerLabel rivalLabel
+    | level <= 0            = evaluate board playerLabel rivalLabel historyBoards
     | otherwise             = score
     where 
-        playerState = state board playerLabel rivalLabel
         newHistory = historyBoards ++ [board]
-        possibleBoards = generateAlternatingMoves board playerLabel rivalLabel newHistory
+        playerState = state board playerLabel rivalLabel newHistory
+        possibleBoards = generateMoves board playerLabel newHistory
 
         -- In min level, the score is calculated by taking the maximum of all children
         -- In max level, the score is calculated by taking the minimum of all children
@@ -114,7 +110,7 @@ findBest board playerLabel rivalLabel level historyBoards
     | otherwise     = snd minScoreMove
     where
         -- generate all possible first moves for player
-        firstPossibleMoves = generateAlternatingMoves board playerLabel rivalLabel historyBoards
+        firstPossibleMoves = generateMoves board playerLabel historyBoards
 
         -- calculate score for all moves
         allEvaluatedMoves =
