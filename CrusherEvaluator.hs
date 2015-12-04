@@ -43,7 +43,7 @@ fnPossible board playerLabel fn =
         flatten $ map (\(Pawn playerPawns (Point x y)) -> (fn board x y playerPawns)) playerPawns
 
 countPossibleMoves :: Board -> Piece -> Int
-countPossibleMoves board playerLabel = length $ fnPossible board playerLabel generateMoves
+countPossibleMoves board playerLabel = length $ fnPossible board playerLabel generateSlides
 
 countPossibleJumps :: Board -> Piece -> Int
 countPossibleJumps board playerLabel = length $ fnPossible board playerLabel generateJumps
