@@ -60,15 +60,12 @@ countPossibleCrushes :: Board -> Piece -> Piece -> Int
 countPossibleCrushes board playerLabel rivalLabel =
     length $ possibleCrushes board playerLabel rivalLabel
 
-generateAlternatingMoves :: Board -> Piece -> Piece -> Int -> [Board] -> [Board]
-generateAlternatingMoves board playerLabel rivalLabel level historyBoards
-    | level <= 0 = [board]
-    | level == 1 = filteredPossibleBoards
-    | otherwise = flatten $ map (\b ->
-                    generateAlternatingMoves b rivalLabel playerLabel (level-1) historyBoards) filteredPossibleBoards
-    where
+generateAlternatingMoves :: Board -> Piece -> Piece -> [Board] -> [Board]
+generateAlternatingMoves board playerLabel rivalLabel historyBoards =
+    let 
         distinctPossibleBoards = nub $ fnPossible board playerLabel generatePossible
-        filteredPossibleBoards = filter (`notElem` historyBoards) distinctPossibleBoards
+    in
+        filter (`notElem` historyBoards) distinctPossibleBoards
 
 state :: Board -> Piece -> Piece -> State
 state board playerLabel rivalLabel
@@ -102,23 +99,30 @@ generateScore board playerLabel rivalLabel level isMinLevel historyBoards
     where 
         playerState = state board playerLabel rivalLabel
         newHistory = historyBoards ++ [board]
-        possibleBoards = generateAlternatingMoves board playerLabel rivalLabel 1 newHistory
-        cumulativeFn
+        possibleBoards = generateAlternatingMoves board playerLabel rivalLabel newHistory
+
+        -- In min level, the score is calculated by taking the maximum of all children
+        -- In max level, the score is calculated by taking the minimum of all children
+        minmaxFn
             | isMinLevel    = maximum
             | otherwise     = minimum
-        score = cumulativeFn (map (\onePossibleBoard -> (generateScore onePossibleBoard rivalLabel playerLabel (level-1) (not(isMinLevel)) newHistory)) possibleBoards)
+        score = minmaxFn (map (\onePossibleBoard -> (generateScore onePossibleBoard rivalLabel playerLabel (level-1) (not(isMinLevel)) newHistory)) possibleBoards)
 
 findBest :: Board -> Piece -> Piece -> Int -> [Board] -> Board
 findBest board playerLabel rivalLabel level historyBoards
     | level <= 0    = board
     | otherwise     = snd minScoreMove
     where
-        firstPossibleMoves = generateAlternatingMoves board playerLabel rivalLabel 1 historyBoards
+        -- generate all possible first moves for player
+        firstPossibleMoves = generateAlternatingMoves board playerLabel rivalLabel historyBoards
 
+        -- calculate score for all moves
         allEvaluatedMoves =
             map (\firstMove ->
                     ((generateScore firstMove rivalLabel playerLabel (level - 1) True historyBoards), firstMove)) firstPossibleMoves
 
+        -- Since first move is in min level
+        -- the optimal move is the one with minimum score
         minScoreMove =
             foldl1 (\(s, f) (acc, m) -> if acc < s then (acc, m) else (s, f)) allEvaluatedMoves
 
