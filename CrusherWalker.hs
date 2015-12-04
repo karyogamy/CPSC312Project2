@@ -206,8 +206,8 @@ generateSlides board x y turn =
 -- generate all possible moves for x,y with the active turn
 -- Takes the board, an x,y coordinate and the active player.
 -- Returns all possible moves for this player
-generatePossible :: [String] -> Int -> Int -> Char -> [[String]]
-generatePossible board x y turn =
+generatePossibleMoves :: [String] -> Int -> Int -> Char -> [[String]]
+generatePossibleMoves board x y turn =
     generateSlides board x y turn ++
     generateLeaps board x y turn
 
