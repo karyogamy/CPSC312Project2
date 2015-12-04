@@ -104,8 +104,8 @@ generateScore board playerLabel rivalLabel level isMinLevel historyBoards
         newHistory = historyBoards ++ [board]
         possibleBoards = generateAlternatingMoves board playerLabel rivalLabel 1 newHistory
         cumulativeFn
-            | isMinLevel    = minimum
-            | otherwise     = maximum
+            | isMinLevel    = maximum
+            | otherwise     = minimum
         score = cumulativeFn (map (\onePossibleBoard -> (generateScore onePossibleBoard rivalLabel playerLabel (level-1) (not(isMinLevel)) newHistory)) possibleBoards)
 
 findBest :: Board -> Piece -> Piece -> Int -> [Board] -> Board
