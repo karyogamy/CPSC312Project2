@@ -56,8 +56,8 @@ clear c = '-'
 setSlide :: Char -> Char -> Char
 setSlide turn c = (if c == '-' then turn else c)
 
-setJump :: Char -> Char -> Char
-setJump turn c = if not (c == turn) then turn else c
+setLeap :: Char -> Char -> Char
+setLeap turn c = if not (c == turn) then turn else c
 
 -- perform fn on b @ x,y
 runAction :: [String] -> Int -> Int -> (Char -> Char) -> [String]
@@ -86,7 +86,7 @@ rowLength b y =
         length (head (drop y b))
 
 -- shift calculate the x coordinate in a hex coordinate system
--- when performing upleft, upright, downleft, downright
+-- when moving upleft, upright, downleft, downright
 -- y2 indicates up/down, y2 = y+1 (up) or y-1 (down)
 -- left indicates left/right, left = 1 (left)
 shift :: [String] -> Int -> Int -> Int -> Int -> Int
@@ -113,9 +113,11 @@ validCoord :: [String] -> Int -> Int -> Bool
 validCoord board x y =
     (x >= 0) && (y >= 0) && (y < (length board)) && (x < (rowLength board y))
 
--- generate a single possiblity (or not) by applying fn to the new x and y
-onePossible :: [String] -> Int -> Int -> (Char -> Char) -> [[String]]
-onePossible base x y fn =
+-- try move pawn to new x and y by applying fn (setSlide or setLeap)
+-- if succeed return new board
+-- if fail return empty
+tryMove :: [String] -> Int -> Int -> (Char -> Char) -> [[String]]
+tryMove base x y fn =
     let new = runAction base x y fn
     in
         if (validCoord base x y) && not ((flatten new) == (flatten base)) then
@@ -126,65 +128,65 @@ onePossible base x y fn =
 data Point = Point Int Int deriving (Show)
 data Hop = Hop Point Point deriving (Show)
 
--- generating coordinates for jumps
-getJumpUpRight :: [String] -> Int -> Int -> Hop
-getJumpUpRight board x y =
+-- generating coordinates for leaps
+getLeapUpRight :: [String] -> Int -> Int -> Hop
+getLeapUpRight board x y =
     let yhop = y-1
         xhop = shift board x y yhop 0
     in
       (Hop (Point xhop yhop) (Point (shift board xhop yhop (yhop-1) 0) (yhop-1)))
 
-getJumpUpLeft :: [String] -> Int -> Int -> Hop
-getJumpUpLeft board x y =
+getLeapUpLeft :: [String] -> Int -> Int -> Hop
+getLeapUpLeft board x y =
     let yhop = y-1
         xhop = shift board x y yhop 1
     in
         (Hop (Point xhop yhop) (Point (shift board xhop yhop (yhop-1) 1) (yhop-1)))
 
-getJumpDownRight :: [String] -> Int -> Int -> Hop
-getJumpDownRight board x y =
+getLeapDownRight :: [String] -> Int -> Int -> Hop
+getLeapDownRight board x y =
     let yhop = y+1
         xhop = shift board x y yhop 0
     in
       (Hop (Point xhop yhop) (Point (shift board xhop yhop (yhop+1) 0) (yhop+1)))
 
-getJumpDownLeft :: [String] -> Int -> Int -> Hop
-getJumpDownLeft board x y =
+getLeapDownLeft :: [String] -> Int -> Int -> Hop
+getLeapDownLeft board x y =
     let yhop = y+1
         xhop = shift board x y yhop 1
     in
         (Hop (Point xhop yhop) (Point (shift board xhop yhop (yhop+1) 1) (yhop+1)))
 
-getJumpLeft :: [String] -> Int -> Int -> Hop
-getJumpLeft board x y =
+getLeapLeft :: [String] -> Int -> Int -> Hop
+getLeapLeft board x y =
     (Hop (Point (x-1) y) (Point (x-2) y))
 
-getJumpRight :: [String] -> Int -> Int -> Hop
-getJumpRight board x y =
+getLeapRight :: [String] -> Int -> Int -> Hop
+getLeapRight board x y =
     (Hop (Point (x+1) y) (Point (x+2) y))
 
--- returns a possible jump is the coordinates are valid and the peice to jumps is correct
-possibleJump :: [String] -> Hop -> Char -> (Char -> Char) -> [[String]]
-possibleJump board (Hop (Point xhop yhop) (Point xdest ydest)) turn fn =
+-- returns a possible leap is the coordinates are valid and the peice to jumps is correct
+possibleLeap :: [String] -> Hop -> Char -> (Char -> Char) -> [[String]]
+possibleLeap board (Hop (Point xhop yhop) (Point xdest ydest)) turn fn =
     if validCoord board xhop yhop && at board xhop yhop == turn
     then
-        onePossible board xdest ydest fn
+        tryMove board xdest ydest fn
     else
         []
 
 -- generate all possible jumps for x,y for the specified turn
-generateJumps :: [String] -> Int -> Int -> Char -> [[String]]
-generateJumps board x y turn =
+generateLeaps :: [String] -> Int -> Int -> Char -> [[String]]
+generateLeaps board x y turn =
     let
         base    = runAction board x y clear
-        fn      = setJump turn
+        fn      = setLeap turn
     in
-        possibleJump base (getJumpUpRight base x y)     turn fn ++
-        possibleJump base (getJumpUpLeft base x y)      turn fn ++
-        possibleJump base (getJumpDownRight base x y)   turn fn ++
-        possibleJump base (getJumpDownLeft base x y)    turn fn ++
-        possibleJump base (getJumpRight base x y)       turn fn ++
-        possibleJump base (getJumpLeft base x y)        turn fn
+        possibleLeap base (getLeapUpRight base x y)     turn fn ++
+        possibleLeap base (getLeapUpLeft base x y)      turn fn ++
+        possibleLeap base (getLeapDownRight base x y)   turn fn ++
+        possibleLeap base (getLeapDownLeft base x y)    turn fn ++
+        possibleLeap base (getLeapRight base x y)       turn fn ++
+        possibleLeap base (getLeapLeft base x y)        turn fn
 
 -- generate all possible slides for x,y with the acturn turn
 -- Takes a board, an x,y coordinate, the active player, and returns all possible boards
@@ -194,12 +196,12 @@ generateSlides board x y turn =
         base    = runAction board x y clear
         fn      = setSlide turn
     in
-        onePossible base (x-1) y fn ++
-        onePossible base (x+1) y fn ++
-        onePossible base (shift board x y (y-1) 0) (y-1) fn ++
-        onePossible base (shift board x y (y-1) 1) (y-1) fn ++
-        onePossible base (shift board x y (y+1) 0) (y+1) fn ++
-        onePossible base (shift board x y (y+1) 1) (y+1) fn
+        tryMove base (x-1) y fn ++
+        tryMove base (x+1) y fn ++
+        tryMove base (shift board x y (y-1) 0) (y-1) fn ++
+        tryMove base (shift board x y (y-1) 1) (y-1) fn ++
+        tryMove base (shift board x y (y+1) 0) (y+1) fn ++
+        tryMove base (shift board x y (y+1) 1) (y+1) fn
 
 -- generate all possible moves for x,y with the active turn
 -- Takes the board, an x,y coordinate and the active player.
@@ -207,7 +209,7 @@ generateSlides board x y turn =
 generatePossible :: [String] -> Int -> Int -> Char -> [[String]]
 generatePossible board x y turn =
     generateSlides board x y turn ++
-    generateJumps board x y turn
+    generateLeaps board x y turn
 
 -- takes parsed boards and prints them nicely
 printBoards :: [[String]] -> String
